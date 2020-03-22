@@ -87,9 +87,9 @@ func Router() *mux.Router {
 
 	// API Routes
 	r.Handle("/api", scoped(apiIndexHandler))
+	r.Handle("/api/setup", http.HandlerFunc(processSetupHandler)).Methods("POST")
 	//r.Handle("/oauth/callback", http.HandlerFunc(OAuthRedirect))
 	api.Handle("/api/login", http.HandlerFunc(apiLoginHandler)).Methods("POST")
-	r.Handle("/api/setup", http.HandlerFunc(processSetupHandler)).Methods("POST")
 	api.Handle("/api/logout", http.HandlerFunc(logoutHandler))
 	api.Handle("/api/renew", authenticated(apiRenewHandler, false))
 	api.Handle("/api/cache", authenticated(apiCacheHandler, false)).Methods("GET")
@@ -191,5 +191,5 @@ func resetRouter() {
 }
 
 func resetCookies() {
-	jwtKey = fmt.Sprintf("%v_%v", core.App.ApiSecret, utils.Now().Nanosecond())
+	jwtKey = fmt.Sprintf("%s_%d", core.App.ApiSecret, utils.Now().Nanosecond())
 }

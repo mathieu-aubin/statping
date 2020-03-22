@@ -7,7 +7,7 @@ XGO=xgo -go $(GOVERSION) --dest=build
 BUILDVERSION=-ldflags "-X main.VERSION=${VERSION} -X main.COMMIT=$(TRAVIS_COMMIT)"
 TRVIS_SECRET=lRqWSt5BoekFK6+padJF+b77YkGdispPXEUKNuD7/Hxb7yJMoI8T/n8xZrTHtCZPdjtpy7wIlJCezNoYEZB3l2GnD6Y1QEZEXF7MIxP7hwsB/uSc5/lgdGW0ZLvTBfv6lwI/GjQIklPBW/4xcKJtj4s1YBP7xvqyIb/lDN7TiOqAKF4gqRVVfsxvlkm7j4TiPCXtz17hYQfU8kKBbd+vd3PuZgdWqs//5RwKk3Ld8QR8zoo9xXQVC5NthiyVbHznzczBsHy2cRZZoWxyi7eJM1HrDw8Jn/ivJONIHNv3RgFVn2rAoKu1X8F6FyuvPO0D2hWC62mdO/e0kt4X0mn9/6xlLSKwrHir67UgNVQe3tvlH0xNKh+yNZqR5x9t0V54vNks6Pgbhas5EfLHoWn5cF4kbJzqkXeHjt1msrsqpA3HKbmtwwjJr4Slotfiu22mAhqLSOV+xWV+IxrcNnrEq/Pa+JAzU12Uyxs8swaLJGPRAlWnJwzL9HK5aOpN0sGTuSEsTwj0WxeMMRx25YEq3+LZOgwOy3fvezmeDnKuBZa6MVCoMMpx1CRxMqAOlTGZXHjj+ZPmqDUUBpzAsFSzIdVRgcnDlLy7YRiz3tVWa1G5S07l/VcBN7ZgvCwOWZ0QgOH0MxkoDfhrfoMhNO6MBFDTRKCEl4TroPEhcInmXU8=
 PUBLISH_BODY='{ "request": { "branch": "master", "message": "Homebrew update version v${VERSION}", "config": { "env": { "VERSION": "${VERSION}", "COMMIT": "$(TRAVIS_COMMIT)" } } } }'
-TRAVIS_BUILD_CMD='{ "request": { "branch": "master", "message": "Compile master for Statping v${VERSION}", "config": { "merge_mode": "replace", "language": "go", "install": true, "sudo": "required", "services": ["docker"], "env": {"secure": "${TRVIS_SECRET}" }, "before_deploy": ["git config --local user.name \"hunterlong\"", "git config --local user.email \"info@socialeck.com\"", "git tag v$(VERSION) --force"], "deploy": [{ "provider": "releases", "api_key": "$$TAG_TOKEN", "file_glob": true, "file": "build/*", "skip_cleanup": true, "on": { "branch": "master" } }], "before_script": ["gem install sass"], "script": ["travis_wait 30 docker pull crazymax/xgo:${GOVERSION}", "make release"], "after_success": [], "after_deploy": ["make publish-homebrew"] } } }'
+TRAVIS_BUILD_CMD='{ "request": { "branch": "master", "message": "Compile master for Statping v${VERSION}", "config": { "merge_mode": "replace", "language": "go", "install": true, "sudo": "required", "services": ["docker"], "env": { "secure": "${TRVIS_SECRET}" }, "before_deploy": ["git config --local user.name \"hunterlong\"", "git config --local user.email \"info@socialeck.com\"", "git tag v$(VERSION) --force"], "deploy": [{ "provider": "releases", "api_key": "$$TAG_TOKEN", "file_glob": true, "file": "build/*", "skip_cleanup": true, "on": { "branch": "master" } }], "before_script": ["rm -rf ~/.nvm && git clone https://github.com/creationix/nvm.git ~/.nvm && (cd ~/.nvm && git checkout `git describe --abbrev=0 --tags`) && source ~/.nvm/nvm.sh && nvm install stable", "nvm install 10.17.0", "nvm use 10.17.0 --default", "npm install -g sass", "npm install -g cross-env"], "script": ["travis_wait 30 docker pull crazymax/xgo:${GOVERSION}", "make release"], "after_success": [], "after_deploy": ["make publish-homebrew"] } } }'
 TEST_DIR=$(GOPATH)/src/github.com/statping/statping
 PATH:=/usr/local/bin:$(GOPATH)/bin:$(PATH)
 
@@ -31,7 +31,7 @@ test: clean
 	go test -v -p=4 -ldflags="-X main.VERSION=testing" -coverprofile=coverage.out ./...
 
 # build all arch's and release Statping
-release:
+release: test-deps
 	wget -O statping.gpg $(SIGN_URL)
 	gpg --import statping.gpg
 	make build-all
@@ -106,7 +106,7 @@ top:
 
 frontend-build:
 	rm -rf source/dist && rm -rf frontend/dist
-	cd frontend && yarn build
+	cd frontend && yarn && yarn build
 	cp -r frontend/dist source/ && cp -r frontend/src/assets/scss source/dist/
 	cp -r source/tmpl/*.* source/dist/
 
@@ -118,7 +118,7 @@ yarn:
 	cd frontend && yarn
 
 # compile assets using SASS and Rice. compiles scss -> css, and run rice embed-go
-compile: generate frontend-build
+compile: frontend-build
 	rm -f source/rice-box.go
 	cd source && rice embed-go
 
@@ -173,7 +173,7 @@ print_details:
 	@echo \==== Monitoring and IDE ====
 	@echo \Grafana:             http://localhost:3000  \(username: admin, password: admin\)
 
-build-all: xgo-install build-mac build-linux build-windows build-linux build-alpine compress
+build-all: xgo-install compile build-mac build-linux build-windows build-linux build-alpine compress
 
 coverage: test-deps
 	$(GOPATH)/bin/goveralls -coverprofile=coverage.out -service=travis -repotoken $(COVERALLS)
